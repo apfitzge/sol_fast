@@ -23,7 +23,7 @@ macro_rules! read_account_view {
             ptr: $ptr.add($offset),
         };
 
-        // Here, we must read teh duplicate flag.
+        // Here, we must read the duplicate flag.
         // This is because the account is serialized differently
         // (i.e. skipped) if the account is a duplicate.
         // In those cases, we will return the duplicate index;
@@ -31,7 +31,10 @@ macro_rules! read_account_view {
         // indexes, should they need to.
         let dup = account_view.duplicate();
         if dup != solana_program::entrypoint::NON_DUP_MARKER {
-            $offset += solana_program::entrypoint::BPF_ALIGN_OF_U128; // Update offset to just be at next 8-byte alignment
+            #[allow(unused_assignments)]
+            {
+                $offset += solana_program::entrypoint::BPF_ALIGN_OF_U128; // Update offset to just be at next 8-byte alignment
+            }
             $crate::account_view::ReadAccountView::Duplicate(dup)
         } else {
             // Update offset to:
@@ -39,11 +42,15 @@ macro_rules! read_account_view {
             // 2. Read the data len, and skip data
             // 3. Add the max allowed increase in data size
             // 4. Update for alignment
-            $offset += $crate::account_view::AccountView::DATA_OFFSET;
-            $offset += account_view.data_len() as usize;
-            $offset += solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
-            $offset +=
-                ($offset as *const u8).align_offset(solana_program::entrypoint::BPF_ALIGN_OF_U128);
+            #[allow(unused_assignments)]
+            {
+                $offset += $crate::account_view::AccountView::DATA_OFFSET;
+                $offset += account_view.data_len() as usize;
+                $offset += solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
+                $offset +=
+                    ($offset as *const u8).align_offset(solana_program::entrypoint::BPF_ALIGN_OF_U128);
+                $offset += core::mem::size_of::<u64>(); // rent epoch (deprecated)
+            }
 
             $crate::account_view::ReadAccountView::View(account_view)
         }
@@ -60,31 +67,32 @@ pub enum ReadAccountView {
 /// Accessor for account data.
 pub struct AccountView {
     /// Pointer to the start of the account.
-    ptr: *mut u8,
+    pub ptr: *mut u8,
 }
 
 impl AccountView {
     // Account Layout is as follows:
     // duplicate - u8
-    const DUPLICATE_OFFSET: usize = 0;
+    pub const DUPLICATE_OFFSET: usize = 0;
     // is_signed - u8
-    const IS_SIGNED_OFFSET: usize = Self::DUPLICATE_OFFSET + core::mem::size_of::<u8>();
+    pub const IS_SIGNED_OFFSET: usize = Self::DUPLICATE_OFFSET + core::mem::size_of::<u8>();
     // is_writable - u8
-    const IS_WRITABLE_OFFSET: usize = Self::IS_SIGNED_OFFSET + core::mem::size_of::<u8>();
+    pub const IS_WRITABLE_OFFSET: usize = Self::IS_SIGNED_OFFSET + core::mem::size_of::<u8>();
     // executable - u8
-    const EXECUTABLE_OFFSET: usize = Self::IS_WRITABLE_OFFSET + core::mem::size_of::<u8>();
+    pub const EXECUTABLE_OFFSET: usize = Self::IS_WRITABLE_OFFSET + core::mem::size_of::<u8>();
     // original_data_len - u32
-    const ORIGINAL_DATA_LEN_OFFSET: usize = Self::EXECUTABLE_OFFSET + core::mem::size_of::<u8>();
+    pub const ORIGINAL_DATA_LEN_OFFSET: usize =
+        Self::EXECUTABLE_OFFSET + core::mem::size_of::<u8>();
     // pubkey - Pubkey
-    const PUBKEY_OFFSET: usize = Self::ORIGINAL_DATA_LEN_OFFSET + core::mem::size_of::<u32>();
+    pub const PUBKEY_OFFSET: usize = Self::ORIGINAL_DATA_LEN_OFFSET + core::mem::size_of::<u32>();
     // owner - Pubkey
-    const OWNER_OFFSET: usize = Self::PUBKEY_OFFSET + core::mem::size_of::<Pubkey>();
+    pub const OWNER_OFFSET: usize = Self::PUBKEY_OFFSET + core::mem::size_of::<Pubkey>();
     // lamports - u64
-    const LAMPORTS_OFFSET: usize = Self::OWNER_OFFSET + core::mem::size_of::<Pubkey>();
+    pub const LAMPORTS_OFFSET: usize = Self::OWNER_OFFSET + core::mem::size_of::<Pubkey>();
     // data_len - u64
-    const DATA_LEN_OFFSET: usize = Self::LAMPORTS_OFFSET + core::mem::size_of::<u64>();
+    pub const DATA_LEN_OFFSET: usize = Self::LAMPORTS_OFFSET + core::mem::size_of::<u64>();
     // data - u8[]
-    const DATA_OFFSET: usize = Self::DATA_LEN_OFFSET + core::mem::size_of::<u64>();
+    pub const DATA_OFFSET: usize = Self::DATA_LEN_OFFSET + core::mem::size_of::<u64>();
 
     /// Copy the duplicate field.
     /// # Safety
