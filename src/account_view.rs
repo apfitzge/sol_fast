@@ -1,17 +1,6 @@
 // TODO: use `solana_pubkey` when published
 use solana_program::pubkey::Pubkey;
 
-/// Read the number of accounts.
-/// # Safety
-/// - `input` must be a valid pointer to the start of the input buffer.
-/// - `offset` should be 0.
-#[inline]
-pub unsafe fn read_num_accounts(input: *mut u8, offset: &mut usize) -> u64 {
-    let num_accounts = core::ptr::read(input.add(*offset) as *const u64);
-    *offset += core::mem::size_of::<u64>();
-    num_accounts
-}
-
 /// # Safety
 /// - `input` must be a valid pointer to the start of the input buffer.
 /// - `offset` should be offset after reading the number of accounts
