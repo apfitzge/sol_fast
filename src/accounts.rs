@@ -22,7 +22,7 @@ macro_rules! read_accounts_no_dup {
         for account in accounts.iter_mut() {
             *account = match $crate::account_view::read_account_view($input, &mut $offset) {
                 $crate::account_view::ReadAccountView::View(account) => account,
-                _ => return 1,
+                _ => return $crate::returns::return_error(),
             };
         }
 

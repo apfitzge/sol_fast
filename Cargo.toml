@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+sbpf-asm-macros = { version = "0.1.2", optional = true }
 solana-program = "1.18.23"
+
+[features]
+asm_return = ["dep:sbpf-asm-macros"]
