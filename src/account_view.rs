@@ -12,49 +12,48 @@ pub unsafe fn read_num_accounts(input: *mut u8, offset: &mut usize) -> u64 {
     num_accounts
 }
 
-/// Read the account view - this is done as a macro so that
-/// trailing code for offset updates can be optimized out by the
-/// compiler if we do not read after.
-#[macro_export]
-macro_rules! read_account_view {
-    ($ptr:expr, $offset:expr) => {{
-        // Get the pointer to the current offset, store in the `AccountView`.
-        let account_view = $crate::account_view::AccountView {
-            ptr: $ptr.add($offset),
-        };
+/// # Safety
+/// - `input` must be a valid pointer to the start of the input buffer.
+/// - `offset` should be offset after reading the number of accounts
+///   or reading up to the number of accounts.
+#[inline]
+pub unsafe fn read_account_view(input: *mut u8, offset: &mut usize) -> ReadAccountView {
+    // Get the pointer to the current offset, store in the `AccountView`.
+    let account_view = AccountView {
+        ptr: unsafe { input.add(*offset) },
+    };
 
-        // Here, we must read the duplicate flag.
-        // This is because the account is serialized differently
-        // (i.e. skipped) if the account is a duplicate.
-        // In those cases, we will return the duplicate index;
-        // the caller is responsible for handling the mapping of these
-        // indexes, should they need to.
-        let dup = account_view.duplicate();
-        if dup != solana_program::entrypoint::NON_DUP_MARKER {
-            #[allow(unused_assignments)]
-            {
-                $offset += solana_program::entrypoint::BPF_ALIGN_OF_U128; // Update offset to just be at next 8-byte alignment
-            }
-            $crate::account_view::ReadAccountView::Duplicate(dup)
-        } else {
-            // Update offset to:
-            // 1. Skip static fields up to the data
-            // 2. Read the data len, and skip data
-            // 3. Add the max allowed increase in data size
-            // 4. Update for alignment
-            #[allow(unused_assignments)]
-            {
-                $offset += $crate::account_view::AccountView::DATA_OFFSET;
-                $offset += account_view.data_len() as usize;
-                $offset += solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
-                $offset +=
-                    ($offset as *const u8).align_offset(solana_program::entrypoint::BPF_ALIGN_OF_U128);
-                $offset += core::mem::size_of::<u64>(); // rent epoch (deprecated)
-            }
-
-            $crate::account_view::ReadAccountView::View(account_view)
+    // Here, we must read the duplicate flag.
+    // This is because the account is serialized differently
+    // (i.e. skipped) if the account is a duplicate.
+    // In those cases, we will return the duplicate index;
+    // the caller is responsible for handling the mapping of these
+    // indexes, should they need to.
+    let dup = account_view.duplicate();
+    if dup != solana_program::entrypoint::NON_DUP_MARKER {
+        #[allow(unused_assignments)]
+        {
+            *offset += solana_program::entrypoint::BPF_ALIGN_OF_U128; // Update offset to just be at next 8-byte alignment
         }
-    }};
+        ReadAccountView::Duplicate(dup)
+    } else {
+        // Update offset to:
+        // 1. Skip static fields up to the data
+        // 2. Read the data len, and skip data
+        // 3. Add the max allowed increase in data size
+        // 4. Update for alignment
+        #[allow(unused_assignments)]
+        {
+            *offset += AccountView::DATA_OFFSET;
+            *offset += account_view.data_len() as usize;
+            *offset += solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
+            *offset +=
+                (*offset as *const u8).align_offset(solana_program::entrypoint::BPF_ALIGN_OF_U128);
+            *offset += core::mem::size_of::<u64>(); // rent epoch (deprecated)
+        }
+
+        ReadAccountView::View(account_view)
+    }
 }
 
 /// An account view read by `account_view!` macro, OR
